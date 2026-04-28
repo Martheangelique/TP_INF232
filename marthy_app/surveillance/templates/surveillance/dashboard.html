@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SurveillanceCM — Analyse Avancée</title>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --green:        #00874A;
+            --green-dark:   #005c33;
+            --green-glow:   rgba(0,135,74,0.18);
+            --green-subtle: rgba(0,135,74,0.07);
+            --red:          #D63031;
+            --red-subtle:   rgba(214,48,49,0.08);
+            --amber:        #E8A000;
+            --amber-subtle: rgba(232,160,0,0.1);
+            --blue:         #1A6FB5;
+            --blue-subtle:  rgba(26,111,181,0.08);
+            --purple:       #6C5CE7;
+            --ink:          #0F1A13;
+            --ink-60:       rgba(15,26,19,0.6);
+            --ink-30:       rgba(15,26,19,0.3);
+            --ink-10:       rgba(15,26,19,0.07);
+            --surface:      #F7F9F7;
+            --card:         #FFFFFF;
+            --border:       rgba(15,26,19,0.09);
+            --sidebar-w:    240px;
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--surface);
+            color: var(--ink);
+            min-height: 100vh;
+            display: flex;
+        }
+
+        /* ═══════════════ SIDEBAR ═══════════════ */
+        .sidebar {
+            width: var(--sidebar-w);
+            background: var(--ink);
+            min-height: 100vh;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            display: flex;
+            flex-direction: column;
+            z-index: 200;
+        }
+        .sidebar::before {
+            content: '';
+            position: absolute;
+            top: -60px; left: -60px;
+            width: 220px; height: 220px;
+            background: var(--green);
+            border-radius: 50%;
+            opacity: 0.12;
+            pointer-events: none;
+        }
+        .sidebar-brand {
+            padding: 28px 22px 22px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            position: relative;
+        }
+        .brand-flag { font-size: 22px; margin-bottom: 10px; display: block; }
+        .brand-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 16px; color: #fff; letter-spacing: -0.3px; line-height: 1.2; }
+        .brand-name span { color: var(--green); }
+        .brand-ministry { font-size: 10.5px; color: rgba(255,255,255,0.35); margin-top: 5px; line-height: 1.4; }
+        .sidebar-nav { flex: 1; padding: 16px 0; overflow-y: auto; }
+        .nav-group-label { padding: 14px 22px 5px; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: rgba(255,255,255,0.22); font-weight: 600; }
+        .nav-item { display: flex; align-items: center; gap: 11px; padding: 10px 22px; color: rgba(255,255,255,0.5); font-size: 13.5px; text-decoration: none; border-left: 2px solid transparent; transition: all 0.18s ease; }
+        .nav-item:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.04); }
+        .nav-item.active { color: #fff; background: rgba(0,135,74,0.15); border-left-color: var(--green); font-weight: 500; }
+        .nav-icon { width: 20px; height: 20px; display: grid; place-items: center; flex-shrink: 0; }
+        .sidebar-bottom { padding: 16px 18px; border-top: 1px solid rgba(255,255,255,0.06); }
+        .btn-signal { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 11px 16px; background: var(--green); color: #fff; font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; border-radius: 10px; text-decoration: none; transition: all 0.2s ease; border: none; cursor: pointer; }
+        .btn-signal:hover { background: #00a05a; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,135,74,0.4); color: #fff; }
+
+        /* ═══════════════ MAIN ═══════════════ */
+        .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; }
+
+        .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 28px; height: 58px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+        .page-label { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 15px; }
+        .date-label { font-size: 12px; color: var(--ink-60); background: var(--ink-10); padding: 5px 12px; border-radius: 8px; }
+
+        .page-content { padding: 24px 28px 60px; }
+
+        /* ── Section ── */
+        .section-header { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; margin-top: 26px; }
+        .section-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; }
+        .section-desc { font-size: 12px; color: var(--ink-60); }
+
+        @keyframes rise {
+            from { opacity:0; transform: translateY(14px); }
+            to   { opacity:1; transform: translateY(0); }
+        }
+
+        /* ── KPI mini row ── */
+        .kpi-mini-grid { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 26px; }
+        .kpi-mini {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 18px;
+            animation: rise 0.4s ease both;
+        }
+        .kpi-mini:nth-child(1) { animation-delay: 0.04s; border-top: 2.5px solid var(--green); }
+        .kpi-mini:nth-child(2) { animation-delay: 0.08s; border-top: 2.5px solid var(--red); }
+        .kpi-mini:nth-child(3) { animation-delay: 0.12s; border-top: 2.5px solid var(--amber); }
+        .kpi-mini:nth-child(4) { animation-delay: 0.16s; border-top: 2.5px solid var(--blue); }
+        .kpi-mini:nth-child(5) { animation-delay: 0.20s; border-top: 2.5px solid var(--purple); }
+        .kpi-mini-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-60); margin-bottom: 5px; font-weight: 600; }
+        .kpi-mini-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; line-height: 1; margin-bottom: 3px; }
+        .kpi-mini-sub { font-size: 11px; color: var(--ink-60); }
+
+        /* ── Chart card ── */
+        .chart-card {
+            background: var(--card);
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            padding: 22px;
+            animation: rise 0.45s ease 0.18s both;
+        }
+        .chart-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; margin-bottom: 3px; }
+        .chart-sub { font-size: 11.5px; color: var(--ink-60); margin-bottom: 18px; }
+
+        /* ── Two-col grid ── */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+        .three-col { display: grid; grid-template-columns: 1.6fr 1fr; gap: 14px; margin-bottom: 14px; }
+
+        /* ── Létalité table ── */
+        .letalite-list { display: flex; flex-direction: column; gap: 10px; }
+        .letalite-row {
+            display: grid;
+            grid-template-columns: 140px 1fr 60px;
+            align-items: center;
+            gap: 14px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background: var(--surface);
+            transition: background 0.15s;
+        }
+        .letalite-row:hover { background: var(--ink-10); }
+        .letalite-name { font-size: 13px; font-weight: 500; }
+        .letalite-bar-wrap { height: 7px; background: var(--ink-10); border-radius: 10px; overflow: hidden; }
+        .letalite-bar { height: 100%; border-radius: 10px; transition: width 0.8s cubic-bezier(0.4,0,0.2,1); }
+        .letalite-pct { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; text-align: right; }
+
+        /* ── Districts table ── */
+        .data-table { width: 100%; border-collapse: collapse; }
+        .data-table thead tr th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-60); font-weight: 600; padding: 10px 14px; text-align: left; background: var(--ink-10); }
+        .data-table tbody tr td { padding: 11px 14px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover td { background: var(--surface); }
+
+        .risk-badge { display: inline-block; padding: 2px 8px; border-radius: 5px; font-size: 11px; font-weight: 600; }
+        .risk-high  { background: var(--red-subtle); color: var(--red); border: 1px solid rgba(214,48,49,0.2); }
+        .risk-med   { background: var(--amber-subtle); color: var(--amber); border: 1px solid rgba(232,160,0,0.2); }
+        .risk-low   { background: var(--green-subtle); color: var(--green); border: 1px solid rgba(0,135,74,0.15); }
+
+        .progress-mini { height: 4px; background: var(--ink-10); border-radius: 4px; margin-top: 4px; }
+        .progress-mini-bar { height: 100%; border-radius: 4px; }
+
+        /* ── Evolution stacked ── */
+        .stacked-full { grid-column: 1 / -1; }
+
+        /* ── Regions bar ── */
+        .region-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+        .region-name { width: 130px; font-size: 12.5px; font-weight: 500; flex-shrink: 0; }
+        .region-bars { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+        .region-bar-line { height: 8px; background: var(--ink-10); border-radius: 6px; overflow: hidden; }
+        .region-bar-fill { height: 100%; border-radius: 6px; transition: width 0.8s ease; }
+        .region-nums { font-size: 11px; color: var(--ink-60); text-align: right; width: 80px; flex-shrink: 0; }
+
+        /* ── Insight box ── */
+        .insight-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 14px; }
+        .insight-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 18px;
+            animation: rise 0.45s ease 0.22s both;
+        }
+        .insight-icon { font-size: 24px; margin-bottom: 10px; display: block; }
+        .insight-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 13px; margin-bottom: 5px; }
+        .insight-text { font-size: 12px; color: var(--ink-60); line-height: 1.6; }
+        .insight-value { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 22px; color: var(--red); margin: 6px 0; }
+    </style>
+</head>
+<body>
+
+<!-- ════════ SIDEBAR ════════ -->
+<aside class="sidebar">
+    <div class="sidebar-brand">
+        <span class="brand-flag">🇨🇲</span>
+        <div class="brand-name">Surveillance<span>CM</span></div>
+        <div class="brand-ministry">Ministère de la Santé Publique<br>Système national de veille sanitaire</div>
+    </div>
+    <nav class="sidebar-nav">
+        <div class="nav-group-label">Tableau de bord</div>
+        <a href="{% url 'dashboard' %}" class="nav-item">
+            <span class="nav-icon">◉</span> Vue d'ensemble
+        </a>
+        <a href="{% url 'analyse' %}" class="nav-item active">
+            <span class="nav-icon">◈</span> Analyse avancée
+        </a>
+        <div class="nav-group-label">Saisie</div>
+        <a href="{% url 'nouveau_signalement' %}" class="nav-item">
+            <span class="nav-icon">＋</span> Nouveau signalement
+        </a>
+        <div class="nav-group-label">Exports</div>
+        <a href="#" class="nav-item" onclick="window.print(); return false;">
+            <span class="nav-icon">↓</span> Imprimer le rapport
+        </a>
+    </nav>
+    <div class="sidebar-bottom">
+        <a href="{% url 'nouveau_signalement' %}" class="btn-signal">＋ Signaler un cas</a>
+    </div>
+</aside>
+
+<!-- ════════ MAIN ════════ -->
+<main class="main">
+    <header class="topbar">
+        <span class="page-label">Analyse épidémiologique avancée</span>
+        <span class="date-label" id="current-date"></span>
+    </header>
+
+    <div class="page-content">
+
+        <!-- ── KPI Mini ── -->
+        <div class="section-header" style="margin-top:0;">
+            <span class="section-title">Indicateurs globaux</span>
+        </div>
+        <div class="kpi-mini-grid">
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Total cas</div>
+                <div class="kpi-mini-value" style="color:var(--green);">{{ total_cas }}</div>
+                <div class="kpi-mini-sub">Tous signalements</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Décès</div>
+                <div class="kpi-mini-value" style="color:var(--red);">{{ total_deces }}</div>
+                <div class="kpi-mini-sub">Létalité {{ taux_letalite_global }}%</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Districts en alerte</div>
+                <div class="kpi-mini-value" style="color:var(--amber);">{{ districts_en_alerte }}</div>
+                <div class="kpi-mini-sub">≥ 10 cas</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Maladies actives</div>
+                <div class="kpi-mini-value" style="color:var(--blue);">{{ nb_maladies_actives }}</div>
+                <div class="kpi-mini-sub">En circulation</div>
+            </div>
+            <div class="kpi-mini">
+                <div class="kpi-mini-label">Risque moyen</div>
+                <div class="kpi-mini-value" style="color:var(--purple);">
+                    {% if taux_letalite_global > 5 %}Élevé{% elif taux_letalite_global > 2 %}Modéré{% else %}Faible{% endif %}
+                </div>
+                <div class="kpi-mini-sub">Évaluation nationale</div>
+            </div>
+        </div>
+
+        <!-- ── Insights ── -->
+        <div class="section-header">
+            <span class="section-title">Observations clés</span>
+            <span class="section-desc">Analyse automatique des données</span>
+        </div>
+        <div class="insight-grid">
+            <div class="insight-card">
+                <span class="insight-icon">🔬</span>
+                <div class="insight-title">Maladie la plus létale</div>
+                {% if letalite_par_maladie %}
+                <div class="insight-value">{{ letalite_par_maladie.0.taux }}%</div>
+                <div class="insight-text">{{ letalite_par_maladie.0.maladie }} présente le taux de létalité le plus élevé avec {{ letalite_par_maladie.0.deces }} décès sur {{ letalite_par_maladie.0.cas }} cas.</div>
+                {% else %}
+                <div class="insight-text">Données insuffisantes pour l'analyse.</div>
+                {% endif %}
+            </div>
+            <div class="insight-card">
+                <span class="insight-icon">📍</span>
+                <div class="insight-title">District le plus affecté</div>
+                {% if top_districts %}
+                <div class="insight-value" style="color:var(--amber);">{{ top_districts.0.total_cas }}</div>
+                <div class="insight-text">{{ top_districts.0.district__nom }} ({{ top_districts.0.district__region }}) enregistre le plus grand nombre de cas avec un taux de létalité de {{ top_districts.0.taux }}%.</div>
+                {% else %}
+                <div class="insight-text">Données insuffisantes.</div>
+                {% endif %}
+            </div>
+            <div class="insight-card">
+                <span class="insight-icon">📊</span>
+                <div class="insight-title">Pression épidémique</div>
+                <div class="insight-value" style="color:var(--blue);">{{ taux_letalite_global }}%</div>
+                <div class="insight-text">Taux de létalité national. 
+                    {% if taux_letalite_global > 5 %}
+                    Niveau critique — une réponse urgente est recommandée.
+                    {% elif taux_letalite_global > 2 %}
+                    Niveau modéré — surveillance renforcée conseillée.
+                    {% else %}
+                    Niveau maîtrisé — maintien du dispositif actuel.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Létalité + Évolution ── -->
+        <div class="section-header">
+            <span class="section-title">Létalité par maladie</span>
+            <span class="section-desc">Classement par taux de létalité décroissant</span>
+        </div>
+
+        <div class="three-col">
+            <!-- Létalité chart + bar list -->
+            <div class="chart-card">
+                <div class="chart-title">Taux de létalité par pathologie</div>
+                <div class="chart-sub">Ratio décès / cas confirmés (en %)</div>
+                <div style="height:230px; margin-bottom:20px;">
+                    <canvas id="letaliteChart"></canvas>
+                </div>
+                <div class="letalite-list" id="letaliteList"></div>
+            </div>
+
+            <!-- Radar maladie -->
+            <div class="chart-card">
+                <div class="chart-title">Profil de risque</div>
+                <div class="chart-sub">Vue radar — cas vs décès par maladie</div>
+                <div style="height:300px;">
+                    <canvas id="radarChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Évolution par maladie ── -->
+        <div class="section-header">
+            <span class="section-title">Évolution temporelle par pathologie</span>
+            <span class="section-desc">Nombre de cas dans le temps, par maladie</span>
+        </div>
+        <div class="chart-card" style="margin-bottom:14px;">
+            <div class="chart-title">Courbes d'évolution multi-maladies</div>
+            <div class="chart-sub">Permet de détecter les pics épidémiques et les co-épidémies</div>
+            <div style="height:250px;">
+                <canvas id="evolutionMaladiesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ── Régions + Top districts ── -->
+        <div class="section-header">
+            <span class="section-title">Analyse géographique</span>
+            <span class="section-desc">Répartition par région et districts à risque</span>
+        </div>
+        <div class="two-col">
+            <!-- Régions bar chart -->
+            <div class="chart-card">
+                <div class="chart-title">Charge épidémique par région</div>
+                <div class="chart-sub">Cas et décès cumulés par région administrative</div>
+                <div style="height:280px;">
+                    <canvas id="regionsChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Top districts table -->
+            <div class="chart-card" style="padding:0;">
+                <div style="padding:22px 22px 14px;">
+                    <div class="chart-title">Top 10 districts à risque</div>
+                    <div class="chart-sub">Classés par nombre total de cas</div>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>District</th>
+                            <th>Cas</th>
+                            <th>Létalité</th>
+                            <th>Risque</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for d in top_districts %}
+                        <tr>
+                            <td style="color:var(--ink-30);font-weight:700;font-size:12px;">{{ forloop.counter }}</td>
+                            <td>
+                                <div style="font-weight:500;font-size:13px;">{{ d.district__nom }}</div>
+                                <div style="font-size:11px;color:var(--ink-30);">{{ d.district__region }}</div>
+                            </td>
+                            <td style="font-family:'Syne',sans-serif;font-weight:700;font-size:14px;">{{ d.total_cas }}</td>
+                            <td style="font-size:12px;">{{ d.taux }}%</td>
+                            <td><span class="risk-badge {{ d.risque_class }}">{{ d.risque }}</span></td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="5" style="text-align:center;padding:32px;color:var(--ink-30);">Aucune donnée</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /page-content -->
+</main>
+
+<!-- ════════ DATA JSON ════════ -->
+<script type="application/json" id="d-letalite">{{ letalite_par_maladie|default:"[]" }}</script>
+<script type="application/json" id="d-regions-labels">{{ regions_labels }}</script>
+<script type="application/json" id="d-regions-cas">{{ regions_cas }}</script>
+<script type="application/json" id="d-regions-deces">{{ regions_deces }}</script>
+<script type="application/json" id="d-evol-maladies">{{ maladies_evolution }}</script>
+
+<script>
+    document.getElementById('current-date').textContent =
+        new Date().toLocaleDateString('fr-FR', { day:'numeric', month:'long', year:'numeric' });
+
+    const PALETTE = ['#00874A','#D63031','#E8A000','#1A6FB5','#6C5CE7','#00B894'];
+
+    Chart.defaults.font.family = "'DM Sans', sans-serif";
+    Chart.defaults.color = 'rgba(15,26,19,0.5)';
+
+    /* ── Data ── */
+    let letaliteData = [];
+    try { letaliteData = JSON.parse(document.getElementById('d-letalite').textContent || '[]'); } catch(e){}
+
+    const regionsLabels = JSON.parse(document.getElementById('d-regions-labels').textContent || '[]');
+    const regionsCas    = JSON.parse(document.getElementById('d-regions-cas').textContent || '[]');
+    const regionsDeces  = JSON.parse(document.getElementById('d-regions-deces').textContent || '[]');
+    let evolMaladies = {};
+    try { evolMaladies = JSON.parse(document.getElementById('d-evol-maladies').textContent || '{}'); } catch(e){}
+
+    /* ── Létalité bar chart (horizontal) ── */
+    if (letaliteData.length > 0) {
+        new Chart(document.getElementById('letaliteChart'), {
+            type: 'bar',
+            data: {
+                labels: letaliteData.map(d => d.maladie),
+                datasets: [{
+                    label: 'Taux de létalité (%)',
+                    data: letaliteData.map(d => d.taux),
+                    backgroundColor: PALETTE.slice(0, letaliteData.length),
+                    borderRadius: 6,
+                    borderSkipped: false,
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ` ${ctx.raw}% — ${letaliteData[ctx.dataIndex].cas} cas, ${letaliteData[ctx.dataIndex].deces} décès`
+                        }
+                    }
+                },
+                scales: {
+                    x: { grid: { color: 'rgba(15,26,19,0.05)' }, border: { display: false }, ticks: { callback: v => v + '%' } },
+                    y: { grid: { display: false }, border: { display: false } }
+                }
+            }
+        });
+
+        /* Bar list */
+        const maxTaux = Math.max(...letaliteData.map(d => d.taux), 0.01);
+        const list = document.getElementById('letaliteList');
+        letaliteData.forEach((d, i) => {
+            const pct = (d.taux / maxTaux * 100).toFixed(1);
+            list.innerHTML += `
+            <div class="letalite-row">
+                <div class="letalite-name" style="color:${PALETTE[i]};">${d.maladie}</div>
+                <div class="letalite-bar-wrap">
+                    <div class="letalite-bar" style="width:${pct}%; background:${PALETTE[i]};"></div>
+                </div>
+                <div class="letalite-pct" style="color:${PALETTE[i]};">${d.taux}%</div>
+            </div>`;
+        });
+    } else {
+        document.getElementById('letaliteChart').parentElement.innerHTML = '<div style="display:grid;place-items:center;height:100%;color:rgba(15,26,19,0.3);font-size:13px;">Données insuffisantes</div>';
+    }
+
+    /* ── Radar chart ── */
+    if (letaliteData.length > 0) {
+        new Chart(document.getElementById('radarChart'), {
+            type: 'radar',
+            data: {
+                labels: letaliteData.map(d => d.maladie),
+                datasets: [
+                    {
+                        label: 'Cas',
+                        data: letaliteData.map(d => d.cas),
+                        borderColor: '#00874A',
+                        backgroundColor: 'rgba(0,135,74,0.12)',
+                        pointBackgroundColor: '#00874A',
+                        borderWidth: 2,
+                    },
+                    {
+                        label: 'Décès',
+                        data: letaliteData.map(d => d.deces),
+                        borderColor: '#D63031',
+                        backgroundColor: 'rgba(214,48,49,0.1)',
+                        pointBackgroundColor: '#D63031',
+                        borderWidth: 2,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'bottom', labels: { font: { size: 11.5 }, boxWidth: 10 } }
+                },
+                scales: {
+                    r: {
+                        grid: { color: 'rgba(15,26,19,0.07)' },
+                        ticks: { font: { size: 10 }, backdropColor: 'transparent' },
+                        pointLabels: { font: { size: 11 } }
+                    }
+                }
+            }
+        });
+    }
+
+    /* ── Évolution multi-maladies ── */
+    const evolKeys = Object.keys(evolMaladies);
+    if (evolKeys.length > 0) {
+        /* Collect all dates */
+        const allDatesSet = new Set();
+        evolKeys.forEach(k => evolMaladies[k].dates.forEach(d => allDatesSet.add(d)));
+        const allDates = Array.from(allDatesSet).sort();
+
+        const datasets = evolKeys.map((label, i) => {
+            const dateValMap = {};
+            evolMaladies[label].dates.forEach((d, j) => { dateValMap[d] = evolMaladies[label].valeurs[j]; });
+            return {
+                label,
+                data: allDates.map(d => dateValMap[d] ?? null),
+                borderColor: PALETTE[i % PALETTE.length],
+                backgroundColor: PALETTE[i % PALETTE.length] + '18',
+                fill: true,
+                tension: 0.4,
+                spanGaps: true,
+                pointRadius: 3,
+                borderWidth: 2,
+            };
+        });
+
+        new Chart(document.getElementById('evolutionMaladiesChart'), {
+            type: 'line',
+            data: { labels: allDates, datasets },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { font: { size: 11.5 }, boxWidth: 10, padding: 16 } }
+                },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10.5 } } },
+                    y: { grid: { color: 'rgba(15,26,19,0.05)' }, border: { display: false }, ticks: { font: { size: 10.5 } } }
+                }
+            }
+        });
+    } else {
+        document.getElementById('evolutionMaladiesChart').parentElement.innerHTML =
+            '<div style="display:grid;place-items:center;height:100%;color:rgba(15,26,19,0.3);font-size:13px;">Données temporelles insuffisantes</div>';
+    }
+
+    /* ── Regions grouped bar ── */
+    if (regionsLabels.length > 0) {
+        new Chart(document.getElementById('regionsChart'), {
+            type: 'bar',
+            data: {
+                labels: regionsLabels,
+                datasets: [
+                    {
+                        label: 'Cas',
+                        data: regionsCas,
+                        backgroundColor: '#00874A',
+                        borderRadius: { topLeft: 4, topRight: 4 },
+                        borderSkipped: false,
+                    },
+                    {
+                        label: 'Décès',
+                        data: regionsDeces,
+                        backgroundColor: '#D63031',
+                        borderRadius: { topLeft: 4, topRight: 4 },
+                        borderSkipped: false,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: true, position: 'top', labels: { font: { size: 11.5 }, boxWidth: 10, padding: 12 } }
+                },
+                scales: {
+                    x: { grid: { display: false }, border: { display: false }, ticks: { font: { size: 10.5 } } },
+                    y: { grid: { color: 'rgba(15,26,19,0.05)' }, border: { display: false }, ticks: { font: { size: 10.5 } } }
+                }
+            }
+        });
+    } else {
+        document.getElementById('regionsChart').parentElement.innerHTML =
+            '<div style="display:grid;place-items:center;height:100%;color:rgba(15,26,19,0.3);font-size:13px;">Données régionales insuffisantes</div>';
+    }
+</script>
+</body>
+</html>

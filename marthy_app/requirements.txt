@@ -1,0 +1,15 @@
+# Framework principal
+Django>=5.0
+
+# Manipulation et analyse des données (pour les futurs rapports)
+pandas
+openpyxl
+
+# Connecteur de base de données (si vous passez à PostgreSQL plus tard)
+# psycopg2-binary
+
+# Pour les graphiques et dashboards complexes
+plotly
+
+# Sécurité et environnement
+python-dotenv

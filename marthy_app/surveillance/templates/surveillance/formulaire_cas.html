@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nouveau Signalement - Cameroun</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        :root { --minsante-green: #007a33; }
+        .btn-submit { background-color: var(--minsante-green); color: white; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card shadow border-0">
+                    <div class="card-header bg-white py-3">
+                        <h4 class="mb-0 fw-bold text-center">Rapport de Cas Épidémiologique</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <form method="post">
+                            {% csrf_token %} {% for field in form %}
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">{{ field.label }}</label>
+                                {{ field }}
+                                {% if field.errors %}
+                                    <div class="text-danger small">{{ field.errors }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+
+                            <div class="d-grid gap-2 mt-4">
+                                <button type="submit" class="btn btn-submit p-3 fw-bold">
+                                    Enregistrer le Signalement
+                                </button>
+                                <a href="{% url 'dashboard' %}" class="btn btn-link text-muted">Annuler</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="mt-3 text-center small text-muted">
+                    Système de collecte de données - Ministère de la Santé Publique
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
